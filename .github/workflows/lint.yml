@@ -12,3 +12,7 @@ jobs:
         target: Dockerfile
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Python Linter
+      uses: sunnysid3up/python-linter@v0.1-beta.7
+      with:
+        source: "src"
