@@ -25,10 +25,12 @@ class LEDThread(threading.Thread):
                 GPIO.output(self.led, int(stateChar))
                 self.logger.debug("Pin: {} Set: {}".format(self.led, 1))
             time.sleep(0.1)
+
     def _setup_gpio(self):
         self.logger.info("Setting up GPIO pins")
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(self.led, GPIO.OUT, initial=False)
+
     def run(self):
         self._setup_gpio()
         while self._running:
@@ -44,11 +46,13 @@ class LEDThread(threading.Thread):
                 self._executeLEDPattern(self.patternDefault)
 
         GPIO.output(self.led, 0)
+
     def stop(self):
         self._running = False
 
     def is_stopping(self):
         return not self._running
+
 
 class Redis2LEDs():
     logger = None
