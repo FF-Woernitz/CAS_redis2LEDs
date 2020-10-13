@@ -1,64 +1,126 @@
 # !/usr/bin/python3
-import time, requests, pprint, signal, threading, queue
-from datetime import datetime
-from logbook import INFO, NOTICE, WARNING
+import time, signal, threading, queue, os
+from logbook import INFO, NOTICE
 from CASlib import Config, Logger, RedisMB, Helper
 from pprint import pprint
-from .Constans import LED1_types
+if os.name == 'nt':
+    from .constans import *
+else:
+    from constans import *
+import RPi.GPIO as GPIO
 
-class redis2LEDs():
+
+class LEDThread(threading.Thread):
+    def __init__(self, led, ledqueue, patternDefault):
+        super().__init__()
+        self.logger = Logger.Logger(self.__class__.__name__).getLogger()
+        self.led = led
+        self.ledqueue = ledqueue
+        self.patternDefault = patternDefault
+        pprint(patternDefault)
+        self._running = True
+
+    def _executeLEDPattern(self, pattern):
+        for stateChar in pattern:
+            state = GPIO.input(self.led)
+            self.logger.trace("Pin: {} State: {} Nextstate: {}".format(self.led, state, stateChar))
+            if int(stateChar) != state:
+                GPIO.output(self.led, int(stateChar))
+                self.logger.debug("Pin: {} Set: {}".format(self.led, 1))
+            time.sleep(0.1)
+    def _setup_gpio(self):
+        self.logger.info("Setting up GPIO pins")
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(self.led, GPIO.OUT, initial=False)
+    def run(self):
+        self._setup_gpio()
+        while self._running:
+            item = None
+            try:
+                item = self.ledqueue.get(block=False)
+            except queue.Empty:
+                pass
+            if item is not None:
+                self._executeLEDPattern(item)
+                self.ledqueue.done()
+            else:
+                self._executeLEDPattern(self.patternDefault)
+
+        GPIO.output(self.led, 0)
+    def stop(self):
+        self._running = False
+
+    def is_stopping(self):
+        return not self._running
+
+class Redis2LEDs():
     logger = None
-    queueLED1 = None
-    queueLED1_thread = None
-    queueLED2 = None
-    queueLED2_thread = None
-    queueLED3 = None
-    queueLED3_thread = None
-    queueLED4 = None
-    queueLED4_thread = None
+    LEDError = None
+    LEDError_thread = None
+    LEDActiv = None
+    LEDActiv_thread = None
+    LEDInput = None
+    LEDInput_thread = None
+    LEDAlert = None
+    LEDAlert_thread = None
+    Redis_thread = None
 
     def __init__(self):
         self.logger = Logger.Logger(self.__class__.__name__).getLogger()
         self.config = Config.Config().getConfig()
+        self.config = self.config['leds']
         self.redisMB = RedisMB.RedisMB()
         self.helper = Helper.Helper()
         signal.signal(signal.SIGTERM, self.signalhandler)
         signal.signal(signal.SIGHUP, self.signalhandler)
 
-        self.queueLED1 = queue.Queue()
-        self.queueLED2 = queue.Queue()
-        self.queueLED3 = queue.Queue()
-        self.queueLED4 = queue.Queue()
+        self.LEDError_queue = queue.Queue()
+        self.LEDActiv_queue = queue.Queue()
+        self.LEDInput_queue = queue.Queue()
+        self.LEDAlert_queue = queue.Queue()
 
     def log(self, level, log, uuid="No UUID"):
         self.logger.log(level, "[{}]: {}".format(uuid, log))
 
     def signalhandler(self, signum, frame):
         self.log(INFO, 'Signal handler called with signal {}'.format(signum))
-        for t in [self.queueLED1_thread, self.queueLED2_thread, self.queueLED3_thread, self.queueLED4_thread]:
+        for t in [self.LEDError_thread, self.LEDActiv_thread, self.LEDInput_thread, self.LEDAlert_thread]:
             try:
                 if t is not None:
-                    t.kill()
-                self.redisMB.exit()
+                    t.stop()
             except:
                 pass
         try:
             self.redisMB.exit()
         except:
             pass
-
+        GPIO.cleanup()
         self.log(NOTICE, 'exiting...')
         exit()
 
-    def threadLED1(self):
-
     def startThreads(self):
-        x = threading.Thread(target=self.threadLED1)
+        self.log(INFO, "Starting LED threads")
+        self.LEDError_thread = LEDThread(self.config['LEDError'], self.LEDError_queue, LEDErrorTypes.default)
+        self.LEDActiv_thread = LEDThread(self.config['LEDActiv'], self.LEDActiv_queue, LEDActivTypes.default)
+        self.LEDInput_thread = LEDThread(self.config['LEDInput'], self.LEDInput_queue, LEDInputTypes.default)
+        self.LEDAlert_thread = LEDThread(self.config['LEDAlert'], self.LEDAlert_queue, LEDAlertTypes.default)
+
+        self.LEDError_thread.start()
+        self.LEDActiv_thread.start()
+        self.LEDInput_thread.start()
+        self.LEDAlert_thread.start()
 
     def main(self):
-        pass
+        self.startThreads()
+
+        for t in [self.LEDError_thread, self.LEDActiv_thread, self.LEDInput_thread, self.LEDAlert_thread,
+                  self.Redis_thread]:
+            if t is None:
+                continue
+            t.join()
 
 
 if __name__ == '__main__':
-    c = redis2LEDs()
+    print("V1")
+    c = Redis2LEDs()
     c.main()
