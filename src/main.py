@@ -20,7 +20,9 @@ class LEDThread(threading.Thread):
     def _executeLEDPattern(self, pattern):
         for stateChar in pattern:
             state = GPIO.input(self.led)
-            self.logger.trace("Pin: {} State: {} Nextstate: {}".format(self.led, state, stateChar))
+            self.logger.trace(
+                "Pin: {} State: {} Nextstate: {}".format(self.led, state, stateChar)
+            )
             if int(stateChar) != state:
                 GPIO.output(self.led, int(stateChar))
                 self.logger.debug("Pin: {} Set: {}".format(self.led, 1))
@@ -55,7 +57,7 @@ class LEDThread(threading.Thread):
         return not self._running
 
 
-class Redis2LEDs():
+class Redis2LEDs:
     logger = None
     LEDError = None
     LEDError_thread = None
@@ -70,7 +72,7 @@ class Redis2LEDs():
     def __init__(self):
         self.logger = Logger.Logger(self.__class__.__name__).getLogger()
         self.config = Config.Config().getConfig()
-        self.config = self.config['leds']
+        self.config = self.config["leds"]
         self.redisMB = RedisMB.RedisMB()
         self.helper = Helper.Helper()
         signal.signal(signal.SIGTERM, self.signalhandler)
@@ -85,8 +87,13 @@ class Redis2LEDs():
         self.logger.log(level, "[{}]: {}".format(uuid, log))
 
     def signalhandler(self, signum, frame):
-        self.log(INFO, 'Signal handler called with signal {}'.format(signum))
-        for t in [self.LEDError_thread, self.LEDActiv_thread, self.LEDInput_thread, self.LEDAlert_thread]:
+        self.log(INFO, "Signal handler called with signal {}".format(signum))
+        for t in [
+            self.LEDError_thread,
+            self.LEDActiv_thread,
+            self.LEDInput_thread,
+            self.LEDAlert_thread,
+        ]:
             try:
                 if t is not None:
                     t.stop()
@@ -97,15 +104,23 @@ class Redis2LEDs():
         except:
             pass
         GPIO.cleanup()
-        self.log(NOTICE, 'exiting...')
+        self.log(NOTICE, "exiting...")
         exit()
 
     def startThreads(self):
         self.log(INFO, "Starting LED threads")
-        self.LEDError_thread = LEDThread(self.config['LEDError'], self.LEDError_queue, LEDErrorTypes.default)
-        self.LEDActiv_thread = LEDThread(self.config['LEDActiv'], self.LEDActiv_queue, LEDActivTypes.default)
-        self.LEDInput_thread = LEDThread(self.config['LEDInput'], self.LEDInput_queue, LEDInputTypes.default)
-        self.LEDAlert_thread = LEDThread(self.config['LEDAlert'], self.LEDAlert_queue, LEDAlertTypes.default)
+        self.LEDError_thread = LEDThread(
+            self.config["LEDError"], self.LEDError_queue, LEDErrorTypes.default
+        )
+        self.LEDActiv_thread = LEDThread(
+            self.config["LEDActiv"], self.LEDActiv_queue, LEDActivTypes.default
+        )
+        self.LEDInput_thread = LEDThread(
+            self.config["LEDInput"], self.LEDInput_queue, LEDInputTypes.default
+        )
+        self.LEDAlert_thread = LEDThread(
+            self.config["LEDAlert"], self.LEDAlert_queue, LEDAlertTypes.default
+        )
 
         self.LEDError_thread.start()
         self.LEDActiv_thread.start()
@@ -115,14 +130,19 @@ class Redis2LEDs():
     def main(self):
         self.startThreads()
 
-        for t in [self.LEDError_thread, self.LEDActiv_thread, self.LEDInput_thread, self.LEDAlert_thread,
-                  self.Redis_thread]:
+        for t in [
+            self.LEDError_thread,
+            self.LEDActiv_thread,
+            self.LEDInput_thread,
+            self.LEDAlert_thread,
+            self.Redis_thread,
+        ]:
             if t is None:
                 continue
             t.join()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("V1")
     c = Redis2LEDs()
     c.main()
