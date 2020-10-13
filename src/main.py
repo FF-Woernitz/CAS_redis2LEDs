@@ -29,6 +29,7 @@ class LEDThread(threading.Thread):
     def _setup_gpio(self):
         self.logger.info("Setting up GPIO pins")
         GPIO.setmode(GPIO.BCM)
+        GPIO.setwarnings(False)
         GPIO.setup(self.led, GPIO.OUT, initial=False)
 
     def run(self):
