@@ -14,7 +14,6 @@ class LEDThread(threading.Thread):
         self.led = led
         self.ledqueue = ledqueue
         self.patternDefault = patternDefault
-        pprint(patternDefault)
         self._running = True
 
     def _executeLEDPattern(self, pattern):
