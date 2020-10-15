@@ -3,7 +3,7 @@ import time, signal, threading, queue, os
 from logbook import INFO, NOTICE
 from CASlib import Config, Logger, RedisMB, Helper
 from pprint import pprint
-from LEDPatterns import *
+from .LEDPatterns import *
 import RPi.GPIO as GPIO
 
 
@@ -82,6 +82,8 @@ class Redis2LEDs:
         self.LEDInput_queue = queue.Queue()
         self.LEDAlert_queue = queue.Queue()
 
+        self.ledpatterns = LEDPatterns(self.LEDError_queue, self.LEDActiv_queue, self.LEDInput_queue, self.LEDAlert_queue)
+
     def log(self, level, log, uuid="No UUID"):
         self.logger.log(level, "[{}]: {}".format(uuid, log))
 
@@ -126,8 +128,12 @@ class Redis2LEDs:
         self.LEDInput_thread.start()
         self.LEDAlert_thread.start()
 
+    def redisListener(self, message):
+        self.ledpatterns.checkPattern(message['channel'])
+
     def main(self):
         self.startThreads()
+        self.redisMB.psubscribeToType('*', self.redisListener)
 
         for t in [
             self.LEDError_thread,
