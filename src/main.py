@@ -3,7 +3,7 @@ import time, signal, threading, queue, os
 from logbook import INFO, NOTICE
 from CASlib import Config, Logger, RedisMB, Helper
 from pprint import pprint
-from .LEDPatterns import *
+from LEDPatterns import *
 import RPi.GPIO as GPIO
 
 
