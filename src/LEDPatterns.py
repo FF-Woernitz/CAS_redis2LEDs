@@ -21,6 +21,7 @@ class LEDInputTypes:
 
 class LEDAlertTypes:
     default = "0"
+    testalertZVEI = "1000000000"
     alertZVEI = "1111100000"
     alertFax = "1000010000"
     alertGPIO = "1001001000"
@@ -40,3 +41,5 @@ class LEDPatterns:
     def checkPattern(self, channel):
         self._check(channel, "inputZVEI", self.LEDInput_queue, LEDInputTypes.inputZVEI)
         self._check(channel, "alertZVEI", self.LEDAlert_queue, LEDAlertTypes.alertZVEI)
+        self._check(channel, "errorZVEI", self.LEDError_queue, LEDErrorTypes.errorZVEI)
+        self._check(channel, "testalertZVEI", self.LEDAlert_queue, LEDAlertTypes.testalertZVEI)
