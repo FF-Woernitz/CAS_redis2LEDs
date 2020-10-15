@@ -1,7 +1,7 @@
 # !/usr/bin/python3
 import time, signal, threading, queue, os
 from logbook import INFO, NOTICE
-from CASlib import Config, Logger, RedisMB, Helper
+from CASlib import Config, Logger, RedisMB
 from pprint import pprint
 from LEDPatterns import *
 import RPi.GPIO as GPIO
@@ -73,7 +73,6 @@ class Redis2LEDs:
         self.config = Config.Config().getConfig()
         self.config = self.config["leds"]
         self.redisMB = RedisMB.RedisMB()
-        self.helper = Helper.Helper()
         signal.signal(signal.SIGTERM, self.signalhandler)
         signal.signal(signal.SIGHUP, self.signalhandler)
 
