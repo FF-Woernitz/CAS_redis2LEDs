@@ -1,8 +1,7 @@
 # !/usr/bin/python3
-import time, signal, threading, queue, os
+import time, signal, threading, queue
 from logbook import INFO, NOTICE
 from CASlib import Config, Logger, RedisMB
-from pprint import pprint
 from LEDPatterns import *
 import RPi.GPIO as GPIO
 
@@ -43,7 +42,6 @@ class LEDThread(threading.Thread):
                 pass
             if item is not None:
                 self._executeLEDPattern(item)
-                self.ledqueue.done()
             else:
                 self._executeLEDPattern(self.patternDefault)
 
@@ -76,12 +74,12 @@ class Redis2LEDs:
         signal.signal(signal.SIGTERM, self.signalhandler)
         signal.signal(signal.SIGHUP, self.signalhandler)
 
-        self.LEDError_queue = queue.Queue()
-        self.LEDActiv_queue = queue.Queue()
-        self.LEDInput_queue = queue.Queue()
-        self.LEDAlert_queue = queue.Queue()
+        self.LEDError_queue = queue.Queue(maxsize=64)
+        self.LEDActiv_queue = queue.Queue(maxsize=64)
+        self.LEDInput_queue = queue.Queue(maxsize=64)
+        self.LEDAlert_queue = queue.Queue(maxsize=64)
 
-        self.ledpatterns = LEDPatterns(self.LEDError_queue, self.LEDActiv_queue, self.LEDInput_queue, self.LEDAlert_queue)
+        self.ledpatterns = LEDPatterns(self.logger, self.LEDError_queue, self.LEDActiv_queue, self.LEDInput_queue, self.LEDAlert_queue)
 
     def log(self, level, log, uuid="No UUID"):
         self.logger.log(level, "[{}]: {}".format(uuid, log))
@@ -127,12 +125,15 @@ class Redis2LEDs:
         self.LEDInput_thread.start()
         self.LEDAlert_thread.start()
 
-    def redisListener(self, message):
-        self.ledpatterns.checkPattern(message['channel'])
+    def redisListener(self, data):
+        self.logger.info("Received new redis message")
+        self.logger.debug(data)
+        message = self.redisMB.decodeMessage(data)
+        self.ledpatterns.checkPattern(message)
 
     def main(self):
         self.startThreads()
-        self.redisMB.psubscribeToType('*', self.redisListener)
+        self.Redis_thread = self.redisMB.psubscribeToType('*', self.redisListener)
 
         for t in [
             self.LEDError_thread,
@@ -147,6 +148,5 @@ class Redis2LEDs:
 
 
 if __name__ == "__main__":
-    print("V1")
     c = Redis2LEDs()
     c.main()
