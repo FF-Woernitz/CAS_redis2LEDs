@@ -68,8 +68,14 @@ class Redis2LEDs:
 
     def __init__(self):
         self.logger = Logger.Logger(self.__class__.__name__).getLogger()
+
         self.config = Config.Config().getConfig()
-        self.config = self.config["leds"]
+        if "gpio" not in self.config:
+            raise LookupError('Could not found gpio in config')
+        if "led" not in self.config["gpio"]:
+            raise LookupError('Could not found led in gpio config')
+        self.config = self.config["gpio"]["led"]
+
         self.redisMB = RedisMB.RedisMB()
         signal.signal(signal.SIGTERM, self.signalhandler)
         signal.signal(signal.SIGHUP, self.signalhandler)
