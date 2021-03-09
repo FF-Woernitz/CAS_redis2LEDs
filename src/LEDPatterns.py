@@ -1,6 +1,9 @@
 # Echo led cycle is 0.1 second. 1 = On 0 = Off
 from queue import Queue
 
+from CASlibrary.constants import AlertType
+from logbook import INFO, DEBUG
+
 
 class LEDErrorTypes:
     default = "0"
@@ -8,7 +11,7 @@ class LEDErrorTypes:
     errorFax = "1000010000"
 
 
-class LEDActivTypes:
+class LEDActiveTypes:
     default = "1010000000"
 
 
@@ -28,21 +31,34 @@ class LEDAlertTypes:
 
 
 class LEDPatterns:
-    def __init__(self, logger, LEDError_queue: Queue, LEDActiv_queue: Queue, LEDInput_queue: Queue, LEDAlert_queue: Queue):
+    def __init__(self, logger, LEDError_queue: Queue, LEDActive_queue: Queue, LEDInput_queue: Queue,
+                 LEDAlert_queue: Queue):
         self.logger = logger
         self.LEDInput_queue = LEDInput_queue
-        self.LEDActiv_queue = LEDActiv_queue
+        self.LEDActive_queue = LEDActive_queue
         self.LEDError_queue = LEDError_queue
         self.LEDAlert_queue = LEDAlert_queue
 
-    def _check(self, message: dict, messagePattern: str, queue: Queue, LEDType: str):
-        self.logger.debug("Check if message has pattern: {}".format(messagePattern))
-        if message["type"] == messagePattern:
-            self.logger.info("Message has pattern: {}".format(message["type"]))
-            queue.put_nowait(LEDType)
+    def _log(self, level, log, uuid="No UUID"):
+        self.logger.log(level, "[{}]: {}".format(uuid, log))
 
-    def checkPattern(self, channel):
-        self._check(channel, "inputZVEI", self.LEDInput_queue, LEDInputTypes.inputZVEI)
-        self._check(channel, "alertZVEI", self.LEDAlert_queue, LEDAlertTypes.alertZVEI)
-        self._check(channel, "errorZVEI", self.LEDError_queue, LEDErrorTypes.errorZVEI)
-        self._check(channel, "testalertZVEI", self.LEDAlert_queue, LEDAlertTypes.testalertZVEI)
+    def _check(self, message: dict, channel: str, type: str, queue: Queue, LEDType: str):
+        if type:
+            self._log(DEBUG, "Check if message is from channel: {} and has type {}:".format(channel, type),
+                      message["uuid"])
+            if message["channel"] == channel and "type" in message["message"] and message["message"]["type"] == type:
+                self._log(INFO,
+                          "Message has channel: {} and type: {}".format(message["channel"], message["message"]["type"]),
+                          message["uuid"])
+                queue.put_nowait(LEDType)
+        else:
+            self._log(DEBUG, "Check if message is from channel: {} and has any type".format(channel), message["uuid"])
+            if message["channel"] == channel:
+                self._log(INFO, "Message has channel: {}".format(message["channel"]), message["uuid"])
+                queue.put_nowait(LEDType)
+
+    def checkPattern(self, message):
+        self._check(message, "input", AlertType.ZVEI, self.LEDInput_queue, LEDInputTypes.inputZVEI)
+        self._check(message, "alert", AlertType.ZVEI, self.LEDAlert_queue, LEDAlertTypes.alertZVEI)
+        self._check(message, "error", AlertType.ZVEI, self.LEDError_queue, LEDErrorTypes.errorZVEI)
+        self._check(message, "test", AlertType.ZVEI, self.LEDAlert_queue, LEDAlertTypes.testalertZVEI)

@@ -1,9 +1,15 @@
 # !/usr/bin/python3
-import time, signal, threading, queue
-from logbook import INFO, NOTICE
-from CASlib import Config, Logger, RedisMB
-from LEDPatterns import *
+import queue
+import signal
+import threading
+import time
+
 import RPi.GPIO as GPIO
+from CASlibrary import Config, Logger, RedisMB
+from CASlibrary.constants import AlertType
+from logbook import INFO, NOTICE, DEBUG
+
+from LEDPatterns import *
 
 
 class LEDThread(threading.Thread):
@@ -23,16 +29,16 @@ class LEDThread(threading.Thread):
             )
             if int(stateChar) != state:
                 GPIO.output(self.led, int(stateChar))
-                self.logger.debug("Pin: {} Set: {}".format(self.led, 1))
+                self.logger.debug("Pin: {} Set: {}".format(self.led, stateChar))
             time.sleep(0.1)
 
     def _setup_gpio(self):
-        self.logger.info("Setting up GPIO pins")
         GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
         GPIO.setup(self.led, GPIO.OUT, initial=False)
 
     def run(self):
+        self.logger.info("Setting up GPIO pins")
         self._setup_gpio()
         while self._running:
             item = None
@@ -45,7 +51,11 @@ class LEDThread(threading.Thread):
             else:
                 self._executeLEDPattern(self.patternDefault)
 
-        GPIO.output(self.led, 0)
+        try:
+            self._setup_gpio()
+            GPIO.output(self.led, 0)
+        except RuntimeError:
+            pass
 
     def stop(self):
         self._running = False
@@ -58,8 +68,8 @@ class Redis2LEDs:
     logger = None
     LEDError = None
     LEDError_thread = None
-    LEDActiv = None
-    LEDActiv_thread = None
+    LEDActive = None
+    LEDActive_thread = None
     LEDInput = None
     LEDInput_thread = None
     LEDAlert = None
@@ -81,20 +91,21 @@ class Redis2LEDs:
         signal.signal(signal.SIGHUP, self.signalhandler)
 
         self.LEDError_queue = queue.Queue(maxsize=64)
-        self.LEDActiv_queue = queue.Queue(maxsize=64)
+        self.LEDActive_queue = queue.Queue(maxsize=64)
         self.LEDInput_queue = queue.Queue(maxsize=64)
         self.LEDAlert_queue = queue.Queue(maxsize=64)
 
-        self.ledpatterns = LEDPatterns(self.logger, self.LEDError_queue, self.LEDActiv_queue, self.LEDInput_queue, self.LEDAlert_queue)
+        self.ledpatterns = LEDPatterns(self.logger, self.LEDError_queue, self.LEDActive_queue, self.LEDInput_queue,
+                                       self.LEDAlert_queue)
 
     def log(self, level, log, uuid="No UUID"):
         self.logger.log(level, "[{}]: {}".format(uuid, log))
 
-    def signalhandler(self, signum, frame):
+    def signalhandler(self, signum):
         self.log(INFO, "Signal handler called with signal {}".format(signum))
         for t in [
             self.LEDError_thread,
-            self.LEDActiv_thread,
+            self.LEDActive_thread,
             self.LEDInput_thread,
             self.LEDAlert_thread,
         ]:
@@ -116,8 +127,8 @@ class Redis2LEDs:
         self.LEDError_thread = LEDThread(
             self.config["LEDError"], self.LEDError_queue, LEDErrorTypes.default
         )
-        self.LEDActiv_thread = LEDThread(
-            self.config["LEDActiv"], self.LEDActiv_queue, LEDActivTypes.default
+        self.LEDActive_thread = LEDThread(
+            self.config["LEDActive"], self.LEDActive_queue, LEDActiveTypes.default
         )
         self.LEDInput_thread = LEDThread(
             self.config["LEDInput"], self.LEDInput_queue, LEDInputTypes.default
@@ -127,13 +138,13 @@ class Redis2LEDs:
         )
 
         self.LEDError_thread.start()
-        self.LEDActiv_thread.start()
+        self.LEDActive_thread.start()
         self.LEDInput_thread.start()
         self.LEDAlert_thread.start()
 
     def redisListener(self, data):
-        self.logger.info("Received new redis message")
-        self.logger.debug(data)
+        self.log(INFO, "Received new redis message")
+        self.log(DEBUG, data)
         message = self.redisMB.decodeMessage(data)
         self.ledpatterns.checkPattern(message)
 
@@ -143,14 +154,17 @@ class Redis2LEDs:
 
         for t in [
             self.LEDError_thread,
-            self.LEDActiv_thread,
+            self.LEDActive_thread,
             self.LEDInput_thread,
             self.LEDAlert_thread,
             self.Redis_thread,
         ]:
             if t is None:
                 continue
-            t.join()
+            try:
+                t.join()
+            except KeyboardInterrupt:
+                self.signalhandler("KeyboardInterrupt")
 
 
 if __name__ == "__main__":
