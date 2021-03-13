@@ -6,7 +6,6 @@ from logbook import DEBUG, INFO
 from CASlibrary.constants import AlertType
 
 
-
 class LEDErrorTypes:
     default = "0"
     errorZVEI = "1111100000"
