@@ -1,8 +1,10 @@
 # Echo led cycle is 0.1 second. 1 = On 0 = Off
 from queue import Queue
 
+from logbook import DEBUG, INFO
+
 from CASlibrary.constants import AlertType
-from logbook import INFO, DEBUG
+
 
 
 class LEDErrorTypes:

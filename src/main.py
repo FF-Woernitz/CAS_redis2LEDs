@@ -5,11 +5,12 @@ import threading
 import time
 
 import RPi.GPIO as GPIO
-from CASlibrary import Config, Logger, RedisMB
-from CASlibrary.constants import AlertType
-from logbook import INFO, NOTICE, DEBUG
 
-from LEDPatterns import *
+from logbook import DEBUG, INFO, NOTICE
+
+from CASlibrary import Config, Logger, RedisMB
+
+from LEDPatterns import LEDActiveTypes, LEDAlertTypes, LEDErrorTypes, LEDInputTypes, LEDPatterns
 
 
 class LEDThread(threading.Thread):
@@ -112,11 +113,11 @@ class Redis2LEDs:
             try:
                 if t is not None:
                     t.stop()
-            except:
+            except BaseException:
                 pass
         try:
             self.redisMB.exit()
-        except:
+        except BaseException:
             pass
         GPIO.cleanup()
         self.log(NOTICE, "exiting...")
